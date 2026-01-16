@@ -58,7 +58,7 @@ end
 if isValid
     u_est       = v_los/cosd(AngleToCenterline);
 else
-    u_est       = NaN;
+    u_est       = u_est_Buffer(end);
 end
 
 % Update Buffer for estimated u component

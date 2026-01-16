@@ -9,7 +9,7 @@ addpath(genpath('..\WetiMatlabFunctions'))
 
 % Parameters (can be adjusted, but will provide different results)
 URef_vector         = 18;       % [m/s]         range of wind speeds (operation points) for 18 m/s Hurdles
-n_Seed              = 6;        % [-]           number of stochastic turbulence field seeds
+n_Seed              = 30;        % [-]           number of stochastic turbulence field seeds
 
 % Seed Matrix Definition
 Seed_vector         = [1:n_Seed];

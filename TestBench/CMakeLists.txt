@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.6)
-project(WRAPPER VERSION 2.0.1 LANGUAGES Fortran)
+project(TestBench VERSION 2.0.1 LANGUAGES Fortran)
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/ftnmods")
 
@@ -19,24 +19,21 @@ if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(SOURCES
-    src/WRAPPER.f90
-    src/WRAPPER_Subs.f90
-    src/WRAPPER_Types.f90
-    src/WRAPPER_Helpers.f90
+    src/TestBench.f90
 )
 
-add_library(WRAPPER SHARED ${SOURCES})
+add_library(TestBench SHARED ${SOURCES})
 
 ##### Platform/compiler specific flags ########################################
 
 if(APPLE OR UNIX)
   # Enable .dll export / build options
   if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-    target_compile_options(WRAPPER PRIVATE
+    target_compile_options(TestBench PRIVATE
       -DIMPLICIT_DLLEXPORT -r8 -double-size 64 -cpp -no-wrap-margin
     )
   else()
-    target_compile_options(WRAPPER PRIVATE
+    target_compile_options(TestBench PRIVATE
       -DIMPLICIT_DLLEXPORT -ffree-line-length-0 -fdefault-real-8 -fdefault-double-8 -cpp
     )
   endif()
@@ -44,14 +41,14 @@ if(APPLE OR UNIX)
 elseif (WIN32)
   if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     # Ensure static linking to avoid requiring Fortran runtime dependencies
-    target_compile_options(WRAPPER PRIVATE
+    target_compile_options(TestBench PRIVATE
       -ffree-line-length-0 -static-libgcc -static-libgfortran -static
       -fdefault-real-8 -fdefault-double-8 -cpp
     )
 
   elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     # ifx/ifort on Windows uses slash options, not dash options
-    target_compile_options(WRAPPER PRIVATE
+    target_compile_options(TestBench PRIVATE
       /libs:static
       /free
       /fpp
@@ -61,7 +58,7 @@ elseif (WIN32)
 
     # Optional: set optimization per config explicitly (CMake usually does this,
     # but adding it makes intent clear and avoids surprises)
-    target_compile_options(WRAPPER PRIVATE
+    target_compile_options(TestBench PRIVATE
       $<$<CONFIG:Debug>:/Od>
       $<$<CONFIG:Release>:/O2>
       $<$<CONFIG:RelWithDebInfo>:/O2>

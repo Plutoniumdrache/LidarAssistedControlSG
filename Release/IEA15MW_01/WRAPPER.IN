@@ -1,7 +1,7 @@
 
 
 
-5             			 NumberofSubDLLs !	- The number of sub-DLLs
+5             			 NumberofSubDLLs !	 - The number of sub-DLLs
 "LDP_v1.dll"			 SubDLLName      !   - The name of the sub-DLL to be called (lidar data processing)
 "LDP_v1.IN"   			 SubDLLInputName !   - The name of the sub-DLL input parameter file name
 "FFP_v1.dll" 			 SubDLLName      !   - The name of the sub-DLL to be called (feedforward controller)
@@ -10,6 +10,6 @@
 "ROSCO_v2d6.IN"   		 SubDLLInputName !   - The name of the sub-DLL input parameter file name
 "TestBench.dll"   		 SubDLLName      !
 "TestBench.IN"    		 SubDLLInputName !
-"TestBench_LogSwap.dll"   		 SubDLLName      !
+"TestBench_LogSwap.dll"  SubDLLName      !
 "LogSwap.IN"    		 SubDLLInputName !
 

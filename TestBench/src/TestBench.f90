@@ -50,13 +50,11 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   !---------------------------------------------
   ! One-time init: parse parameter file + load CSV
   !---------------------------------------------
-  CALL log_line(': Before one time init')
   IF (.NOT. initialized) THEN
     initialized = .TRUE.
     param_path  = TRIM(inFileStr)
 
     CALL parse_testbenchcsv_infile(param_path, csv_path, swap_out_index, do_interp, ierr, ErrMsg)
-    CALL log_line(': called parse_testbenchcsv_infile')
     IF (ierr /= 0) THEN
       aviFAIL = -1
       CALL set_discon_message(avcMSG, RoutineName//': '//TRIM(ErrMsg))
@@ -64,7 +62,6 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
     ENDIF
 
     CALL load_csv_two_columns(csv_path, t_csv, v_csv, npts, ierr, ErrMsg)
-    CALL log_line(': called load_csv_two_columns')
     IF (ierr /= 0) THEN
       aviFAIL = -1
       CALL set_discon_message(avcMSG, RoutineName//': '//TRIM(ErrMsg))
@@ -73,40 +70,34 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
 
     IF (swap_out_index < 1) THEN
       aviFAIL = -1
-      CALL log_line(': SwapIndex must be >= 1.')
+      CALL set_discon_message(avcMSG, RoutineName//': SwapIndex must be >= 1.')
       RETURN
     ENDIF
   ENDIF
 
   IF (npts < 2) THEN
     aviFAIL = -1
-    CALL log_line(': CSV has too few points.')
+    CALL set_discon_message(avcMSG, RoutineName//': CSV has too few points.')
     RETURN
   ENDIF
 
   !---------------------------------------------
   ! Main processing each call
   !---------------------------------------------
-  ! Typical DISCON convention: avrSWAP(1) is time (s)
-  CALL log_line(': before main processing')
+  ! From FAST Extended Bladed Interface Documentation: avrSWAP(2) is time (s)
+  ! https://openfast.readthedocs.io/en/dev/source/user/servodyn/ExtendedBladedInterface.html
   t_now = REAL(avrSWAP(2), KIND=8)
   
   IF (do_interp) THEN
     y_now = interp_linear_clamped(t_csv, v_csv, npts, t_now)
   ELSE
     y_now = sample_hold_previous(t_csv, v_csv, npts, t_now)
-    CALL log_line(': Did sample and hold')
   ENDIF
   
   avrSWAP_Status = NINT(avrSWAP(1))
   
   IF (avrSWAP_Status >= 0) THEN
-      CALL log_line(': before write to swap')
-      CALL log_line('TB: swp idx='//trim(adjustl(to_str_i4(swap_out_index))))
-      CALL log_line('TB: swp entry idx 1='//trim(adjustl(to_str_i4(avrSWAP_Status))) )
       avrSWAP(swap_out_index) = REAL(y_now, KIND=C_FLOAT)
-        CALL log_line('TB: t='//trim(adjustl(to_str(t_now))) )
-      CALL log_line(': after write to swap')
     END IF
 
   CALL set_discon_message(avcMSG, '')
@@ -510,37 +501,5 @@ END FUNCTION c_char_array_to_string
 
     sample_hold_previous = v(k)
   END FUNCTION sample_hold_previous
-
-FUNCTION to_str(x) RESULT(s)
-  REAL(8), INTENT(IN) :: x
-  CHARACTER(64) :: s
-  WRITE(s,'(G0.16)') x
-END FUNCTION
-
-FUNCTION to_str_i4(i) RESULT(s)
-  INTEGER, INTENT(IN) :: i
-  CHARACTER(32) :: s
-  WRITE(s,'(I0)') i
-END FUNCTION
   
 END SUBROUTINE DISCON
-
-    
-SUBROUTINE log_line(txt)
-
-  ! for logging
-    INTEGER, SAVE :: ulog = -1
-    LOGICAL, SAVE :: log_open = .FALSE.
-
-    CHARACTER(*), INTENT(IN) :: txt
-    INTEGER :: ios
-    IF (.NOT. log_open) THEN
-      OPEN(NEWUNIT=ulog, FILE='TestBench_debug.log', STATUS='REPLACE', ACTION='WRITE', IOSTAT=ios)
-      IF (ios == 0) log_open = .TRUE.
-    END IF
-    IF (log_open) THEN
-      WRITE(ulog,'(A)') TRIM(txt)
-      CALL FLUSH(ulog)
-    END IF
-    
-END SUBROUTINE log_line

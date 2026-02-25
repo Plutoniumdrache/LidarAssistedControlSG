@@ -80,3 +80,36 @@ delete(FASTexeFile)
 %      + (max(abs(FBFF.TwrBsMyt(FBFF.Time>=t_Start)-TwrBsMyt_0))) / TwrBsMyt_0;
 % 
 % fprintf('Cost for Summer Games 2024 ("30 s sprint"):  %f \n',Cost);
+
+%% InAndOut interpolation test
+% x = 0:pi/4:2*pi;
+x = 0:0.1:30;
+v = sin(x);
+xq = 0:0.0125:30;
+figure
+vq1 = interp1(x,v,xq);
+plot(x,v,'o',xq,vq1,':.');
+hold on
+plot(xq,sin(xq))
+% xlim([0 2*pi]);
+title('(Default) Linear Interpolation');
+legend("sample points","sample values","query points")
+
+% write to csv file
+m = [x;v]';
+writematrix(m,"interp1Test.csv");
+
+DLL = readmatrix("TestBench_SwapLog.txt");
+MATLAB = readmatrix("interp1Test.csv");
+vq2 = interp1(MATLAB(:,1),MATLAB(:,2),xq);
+
+figure("Name","ComparisonPlot")
+subplot(211)
+hold on
+plot(DLL(1:end-1,1),DLL(1:end-1,2))
+plot(xq,vq2)
+legend("DLL", "MATLAB")
+subplot(212)
+plot(DLL(1:end-1,1),vq2'-DLL(1:end-1,2))
+legend("diff MATLAB-DLL")
+

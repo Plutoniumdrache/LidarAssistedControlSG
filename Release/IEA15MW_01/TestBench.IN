@@ -1,0 +1,3 @@
+CsvFilePath: SummerGamesOG_REWS.csv
+SwapIndex: 999
+InterpolateBetweenValues: false  # true=linear interpolation, false=sample-and-hold

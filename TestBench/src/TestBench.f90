@@ -23,6 +23,7 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   LOGICAL, SAVE :: initialized = .FALSE.
   INTEGER, SAVE :: swap_out_index = -1
   LOGICAL, SAVE :: do_interp = .TRUE.
+  REAL(8), SAVE :: preview_time = 0.0D0
 
   INTEGER, SAVE :: npts = 0
   REAL(8), ALLOCATABLE, SAVE :: t_csv(:), v_csv(:)
@@ -37,7 +38,7 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   !-----------------------------
   INTEGER :: ierr
   INTEGER :: avrSWAP_Status
-  REAL(8) :: t_now, y_now
+  REAL(8) :: t_now, t_eval, y_now
   CHARACTER(:), ALLOCATABLE :: inFileStr
   
 
@@ -46,18 +47,22 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   ErrMsg  = ''
 
   inFileStr  = c_char_array_to_string(accINFILE)
-
+  
+  CALL log_line('DISCON entered') ! debug
+  
   !---------------------------------------------
   ! One-time init: parse parameter file + load CSV
   !---------------------------------------------
   IF (.NOT. initialized) THEN
+    CALL log_line('Starting initialization')
     initialized = .TRUE.
     param_path  = TRIM(inFileStr)
 
-    CALL parse_testbenchcsv_infile(param_path, csv_path, swap_out_index, do_interp, ierr, ErrMsg)
+    CALL parse_testbenchcsv_infile(param_path, csv_path, swap_out_index, do_interp, preview_time, ierr, ErrMsg)
     IF (ierr /= 0) THEN
-      aviFAIL = -1
-      CALL set_discon_message(avcMSG, RoutineName//': '//TRIM(ErrMsg))
+        CALL log_line('parse_testbenchcsv_infile failed: '//TRIM(ErrMsg))
+        aviFAIL = -1
+        CALL set_discon_message(avcMSG, RoutineName//': '//TRIM(ErrMsg))
       RETURN
     ENDIF
 
@@ -88,16 +93,35 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   ! https://openfast.readthedocs.io/en/dev/source/user/servodyn/ExtendedBladedInterface.html
   t_now = REAL(avrSWAP(2), KIND=8)
   
-  IF (do_interp) THEN
-    y_now = interp_linear_clamped(t_csv, v_csv, npts, t_now)
+  IF (ABS(preview_time) > 0.0D0) THEN
+    t_eval = wrap_time_periodic(t_now + preview_time, t_csv(1), t_csv(npts))
   ELSE
-    y_now = sample_hold_previous(t_csv, v_csv, npts, t_now)
-  ENDIF
+    t_eval = t_now
+  END IF
+
+  IF (do_interp) THEN
+    IF (ABS(preview_time) > 0.0D0) THEN
+      y_now = interp_linear_periodic(t_csv, v_csv, npts, t_eval)
+    ELSE
+      y_now = interp_linear_clamped(t_csv, v_csv, npts, t_eval)
+    END IF
+  ELSE
+    IF (ABS(preview_time) > 0.0D0) THEN
+      y_now = sample_hold_previous_periodic(t_csv, v_csv, npts, t_eval)
+    ELSE
+      y_now = sample_hold_previous(t_csv, v_csv, npts, t_eval)
+    END IF
+  END IF
   
   avrSWAP_Status = NINT(avrSWAP(1))
   
-  IF (avrSWAP_Status >= 0) THEN
+IF (avrSWAP_Status >= 0) THEN
+      CALL log_line(': before write to swap')
+      CALL log_line('TB: swp idx='//trim(adjustl(to_str_i4(swap_out_index))))
+      CALL log_line('TB: swp entry idx 1='//trim(adjustl(to_str_i4(avrSWAP_Status))) )
       avrSWAP(swap_out_index) = REAL(y_now, KIND=C_FLOAT)
+        CALL log_line('TB: t='//trim(adjustl(to_str(t_now))) )
+      CALL log_line(': after write to swap')
     END IF
 
   CALL set_discon_message(avcMSG, '')
@@ -155,27 +179,30 @@ END FUNCTION c_char_array_to_string
   !========================
   ! Parse your Key: value .in file
   !========================
-  SUBROUTINE parse_testbenchcsv_infile(pfile, csvOut, swapIdx, interp, ierr, err)
+SUBROUTINE parse_testbenchcsv_infile(pfile, csvOut, swapIdx, interp, preview, ierr, err)
     CHARACTER(*), INTENT(IN)  :: pfile
     CHARACTER(:), ALLOCATABLE, INTENT(OUT) :: csvOut
     INTEGER,      INTENT(OUT) :: swapIdx
     LOGICAL,      INTENT(OUT) :: interp
     INTEGER,      INTENT(OUT) :: ierr
     CHARACTER(*), INTENT(OUT) :: err
+    REAL(8),      INTENT(OUT) :: preview
 
     INTEGER :: u, ios
     CHARACTER(512) :: line
     CHARACTER(:), ALLOCATABLE :: key, val
-    LOGICAL :: haveCsv, haveSwap, haveInterp
+    LOGICAL :: haveCsv, haveSwap, haveInterp, havePreview
     CHARACTER(:), ALLOCATABLE :: baseDir, csvRaw
 
     ierr = 0
     err  = ''
     swapIdx = -1
+    preview = 0.0D0
     interp  = .TRUE.
     haveCsv = .FALSE.
     haveSwap = .FALSE.
     haveInterp = .FALSE.
+    havePreview = .FALSE.
 
     baseDir = dirname_of_path(TRIM(pfile))
 
@@ -222,7 +249,17 @@ END FUNCTION c_char_array_to_string
           RETURN
         ENDIF
         haveInterp = .TRUE.
-
+        
+    CASE ('previewtime', 'preview', 'previewtimesec', 'previewseconds')
+        READ(val, *, IOSTAT=ios) preview
+        IF (ios /= 0) THEN
+          ierr = 6
+          err  = 'PreviewTime is not a valid real number.'
+          CLOSE(u)
+          RETURN
+        ENDIF
+        havePreview = .TRUE.
+        
       CASE DEFAULT
         ! ignore unknown keys
       END SELECT
@@ -246,14 +283,26 @@ END FUNCTION c_char_array_to_string
     csvOut = resolve_relative_path(baseDir, csvRaw)
   END SUBROUTINE parse_testbenchcsv_infile
 
-  SUBROUTINE strip_comment_and_trim(s)
-    CHARACTER(*), INTENT(INOUT) :: s
-    INTEGER :: p
-    p = INDEX(s, '#')
-    IF (p > 0) s = s(1:p-1)
-    s = ADJUSTL(s)
-  END SUBROUTINE strip_comment_and_trim
+SUBROUTINE strip_comment_and_trim(s)
+  CHARACTER(*), INTENT(INOUT) :: s
+  INTEGER :: p
 
+  CALL tabs_to_spaces(s)
+  p = INDEX(s, '#')
+  IF (p > 0) s = s(1:p-1)
+  s = trim_whitespace(s)
+END SUBROUTINE strip_comment_and_trim
+
+  SUBROUTINE tabs_to_spaces(s)
+  CHARACTER(*), INTENT(INOUT) :: s
+  INTEGER :: i
+  DO i = 1, LEN(s)
+    IF (s(i:i) == ACHAR(9)) s(i:i) = ' '
+  END DO
+  END SUBROUTINE tabs_to_spaces
+  
+  
+  
   LOGICAL FUNCTION split_key_value(line, key, val)
     CHARACTER(*), INTENT(IN) :: line
     CHARACTER(:), ALLOCATABLE, INTENT(OUT) :: key, val
@@ -263,10 +312,8 @@ END FUNCTION c_char_array_to_string
       split_key_value = .FALSE.
       RETURN
     ENDIF
-    key = ADJUSTL(line(1:p-1))
-    val = ADJUSTL(line(p+1:))
-    key = TRIM(key)
-    val = TRIM(val)
+    key = trim_whitespace(line(1:p-1))
+    val = trim_whitespace(line(p+1:))
     ! strip optional quotes
     IF (LEN(val) >= 2) THEN
       IF ((val(1:1) == '"' .AND. val(LEN(val):LEN(val)) == '"') .OR. &
@@ -293,7 +340,7 @@ END FUNCTION c_char_array_to_string
     INTEGER, INTENT(OUT) :: ios
     CHARACTER(:), ALLOCATABLE :: t
     ios = 0
-    t = ADJUSTL(TRIM(txt))
+    t = trim_whitespace(txt)
     CALL to_lower_inplace(t)
     SELECT CASE (TRIM(t))
     CASE ('true','t','1','yes','y')
@@ -502,4 +549,130 @@ END FUNCTION c_char_array_to_string
     sample_hold_previous = v(k)
   END FUNCTION sample_hold_previous
   
-END SUBROUTINE DISCON
+  FUNCTION trim_whitespace(s) RESULT(out)
+  CHARACTER(*), INTENT(IN) :: s
+  CHARACTER(:), ALLOCATABLE :: out
+  INTEGER :: i1, i2
+
+  i1 = 1
+  i2 = LEN(s)
+
+  DO WHILE (i1 <= i2 .AND. (s(i1:i1) == ' ' .OR. s(i1:i1) == ACHAR(9)))
+    i1 = i1 + 1
+  END DO
+
+  DO WHILE (i2 >= i1 .AND. (s(i2:i2) == ' ' .OR. s(i2:i2) == ACHAR(9)))
+    i2 = i2 - 1
+  END DO
+
+  IF (i2 < i1) THEN
+    out = ''
+  ELSE
+    out = s(i1:i2)
+  END IF
+  END FUNCTION trim_whitespace
+  
+  REAL(8) FUNCTION wrap_time_periodic(x, t0, t1)
+    REAL(8), INTENT(IN) :: x, t0, t1
+    REAL(8) :: period
+
+    period = t1 - t0
+    IF (period <= 0.0D0) THEN
+      wrap_time_periodic = t0
+    ELSE
+      wrap_time_periodic = t0 + MODULO(x - t0, period)
+    END IF
+  END FUNCTION wrap_time_periodic
+  
+  REAL(8) FUNCTION interp_linear_periodic(t, v, n, x)
+    REAL(8), INTENT(IN) :: t(:), v(:), x
+    INTEGER, INTENT(IN) :: n
+    INTEGER :: i
+    REAL(8) :: xw, period, x0, x1, y0, y1, a
+
+    period = t(n) - t(1)
+    IF (n < 2 .OR. period <= 0.0D0) THEN
+      interp_linear_periodic = v(1)
+      RETURN
+    END IF
+
+    xw = wrap_time_periodic(x, t(1), t(n))
+
+    ! Find interval [t(i), t(i+1)) for i=1..n-1
+    DO i = 1, n-1
+      IF (xw >= t(i) .AND. xw < t(i+1)) THEN
+        x0 = t(i)
+        x1 = t(i+1)
+        y0 = v(i)
+        y1 = v(i+1)
+
+        IF (x1 <= x0) THEN
+          interp_linear_periodic = y0
+        ELSE
+          a = (xw - x0) / (x1 - x0)
+          interp_linear_periodic = (1.0D0-a)*y0 + a*y1
+        END IF
+        RETURN
+      END IF
+    END DO
+
+    ! If xw lands exactly at the end due to roundoff, use the last point
+    interp_linear_periodic = v(n)
+  END FUNCTION interp_linear_periodic
+  
+    REAL(8) FUNCTION sample_hold_previous_periodic(t, v, n, x)
+    REAL(8), INTENT(IN) :: t(:), v(:), x
+    INTEGER, INTENT(IN) :: n
+    INTEGER :: i
+    REAL(8) :: xw, period
+
+    period = t(n) - t(1)
+    IF (n < 2 .OR. period <= 0.0D0) THEN
+      sample_hold_previous_periodic = v(1)
+      RETURN
+    END IF
+
+    xw = wrap_time_periodic(x, t(1), t(n))
+
+    DO i = n, 1, -1
+      IF (xw >= t(i)) THEN
+        sample_hold_previous_periodic = v(i)
+        RETURN
+      END IF
+    END DO
+
+    sample_hold_previous_periodic = v(1)
+  END FUNCTION sample_hold_previous_periodic
+  
+  FUNCTION to_str(x) RESULT(s)
+  REAL(8), INTENT(IN) :: x
+  CHARACTER(64) :: s
+  WRITE(s,'(G0.16)') x
+END FUNCTION
+
+FUNCTION to_str_i4(i) RESULT(s)
+  INTEGER, INTENT(IN) :: i
+  CHARACTER(32) :: s
+  WRITE(s,'(I0)') i
+END FUNCTION
+  
+    END SUBROUTINE DISCON
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
+SUBROUTINE log_line(txt)
+
+  ! for logging
+    INTEGER, SAVE :: ulog = -1
+    LOGICAL, SAVE :: log_open = .FALSE.
+
+    CHARACTER(*), INTENT(IN) :: txt
+    INTEGER :: ios
+    IF (.NOT. log_open) THEN
+      OPEN(NEWUNIT=ulog, FILE='TestBench_debug.log', STATUS='REPLACE', ACTION='WRITE', IOSTAT=ios)
+      IF (ios == 0) log_open = .TRUE.
+    END IF
+    IF (log_open) THEN
+      WRITE(ulog,'(A)') TRIM(txt)
+      CALL FLUSH(ulog)
+    END IF
+    
+END SUBROUTINE log_line

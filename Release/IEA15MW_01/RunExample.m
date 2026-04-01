@@ -15,7 +15,7 @@ clearvars;close all;clc;
 addpath(genpath('..\WetiMatlabFunctions'))
 
 % Copy the adequate OpenFAST version to the example folder
-FASTexeFile     = 'openfast_x64.exe';
+FASTexeFile     = 'OpenFASTv5.exe';
 SimulationName  = 'IEA-15-240-RWT-Monopile';
 copyfile(['..\OpenFAST\',FASTexeFile],FASTexeFile)
 

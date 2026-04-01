@@ -1,4 +1,4 @@
 CsvFilePath: EOG_ASCII_12_2c.csv 		# Filename
 SwapIndex: 175                          # Index in swap array to write the signal to
 InterpolateBetweenValues: true 			# true=linear interpolation, false=sample-and-hold
-PreviewTime: 5.0 						# preview time
+PreviewTime: 4.8875 				    # preview time

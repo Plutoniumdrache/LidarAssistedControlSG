@@ -7,7 +7,7 @@
 % significantly the rotor speed variation when OpenFAST is disturbed by an
 % Extreme Operating Gust. Here, only the rotor motion and tower motion 
 % (GenDOF and TwFADOF1) are enabled.  
-% Result:       
+% Result:
 % Cost for Summer Games 2024 ("30 s sprint"):  0.849094
 
 %% Setup
@@ -125,13 +125,35 @@ hold on
 plot(swapContents(1:end-1,1),swapContents(1:end-1,2))
 plot(roscoLog(:,1),roscoLog(:,27),".")
 plot(FBFF.Time,     FBFF.VLOS01LI);
-legend("swapAVR REWS", "roscoLog REWS", "FAST")
+plot(FB.Time,       FB.Wind1VelX);
+legend("swapAVR contents", "roscoLog REWS", "FAST (VLOS01LI)", "FAST (Wind1VelX)")
 grid; box;
+
+
+figure("Name","subPlotComp")
+subplot(411)
+    plot(swapContents(1:end-1,1),swapContents(1:end-1,2))
+    legend("swapAVR contents")
+    grid; box;
+subplot(412)
+    plot(roscoLog(:,1),roscoLog(:,27))
+    legend("roscoLog REWS")
+    grid; box;
+subplot(413)
+    plot(FBFF.Time,FBFF.VLOS01LI);
+    legend("FAST (VLOS01LI)")
+    grid; box;
+subplot(414)
+    plot(FB.Time, FB.Wind1VelX);
+    legend("FAST (Wind1VelX)")
+    grid; box;
 
 %% comparison to summergames base cost
 SgBaseCost = 0.849093636670583;
-deltaAbs = abs(Cost - SgBaseCost);
-deltaPercent = (deltaAbs / ((Cost+SgBaseCost)/2))*100;
-fprintf("Delta in %% to base cost  (0.849094): %f %%\n", deltaPercent);
-fprintf("Delta abs. to base cost   (0.849094): %f\n", deltaAbs);
+delta = (Cost - SgBaseCost);
+deltaPercent = (delta / ((Cost+SgBaseCost)/2))*100;
+fprintf("--------------------------------------------------\n");
+fprintf("Current cost                        : %f\n", Cost);
+fprintf("Delta in %% to base cost  (0.849094) : %f %%\n", deltaPercent);
+fprintf("Delta abs. to base cost   (0.849094): %f\n", abs(delta));
 

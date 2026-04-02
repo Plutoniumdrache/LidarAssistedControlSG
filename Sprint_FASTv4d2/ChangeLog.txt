@@ -1,3 +1,28 @@
 2026/04/02:
 Downloaded IEA-15-240-RWT release v1.1.18 with FAST 4.2 from 
-https://github.com/IEAWindSystems/IEA-15-240-RWT/releases/tag/v1.1.18
+	https://github.com/IEAWindSystems/IEA-15-240-RWT/releases/tag/v1.1.18
+
+Selected necessary files from: 
+OpenFAST/IEA-15-240-RWT
+	+ Airfoils: entire folder
+	+ Cp_Ct_Cq.IEA15MW.txt
+	+ IEA-15-240-RWT_AeroDyn15_blade.dat
+	+ IEA-15-240-RWT_ElastoDyn_blade.dat
+	+ IEA-15-240-RWT_InflowFile.dat
+OpenFAST/IEA-15-240-RWT-Monopile
+	+ IEA-15-240-RWT-Monopile.fst
+	+ IEA-15-240-RWT-Monopile_AeroDyn15.dat
+	+ IEA-15-240-RWT-Monopile_ElastoDyn.dat
+	+ IEA-15-240-RWT-Monopile_ElastoDyn_tower.dat
+	+ IEA-15-240-RWT-Monopile_ServoDyn.dat
+	
+Downloaded FAST 4.2 exe from:
+	https://github.com/OpenFAST/openfast/releases/tag/v4.2.0
+	
+Moved to root simulation level:
+	+ Cp_Ct_Cq.IEA15MW.txt
+	+ IEA-15-240-RWT_InflowFile.dat
+	
+Changed naming of:
+	+ IEA-15-240-RWT-Monopile.fst -> IEA-15-240-RWT-Monopile_FB.fst
+

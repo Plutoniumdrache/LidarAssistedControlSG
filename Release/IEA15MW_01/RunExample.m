@@ -37,6 +37,9 @@ delete(FASTexeFile)
 FB              = ReadFASTbinaryIntoStruct([SimulationName,'_FB.outb']);
 FBFF            = ReadFASTbinaryIntoStruct([SimulationName,'_FBFF.outb']);
 
+save("results/FASTv3LidarSignalProvider_FB","FB");
+save("results/FASTv3LidarSignalProvider_FBFF","FBFF");
+
 % Plot
 figure('Name','Simulation results')
 

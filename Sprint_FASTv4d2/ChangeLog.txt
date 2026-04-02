@@ -1,0 +1,3 @@
+2026/04/02:
+Downloaded IEA-15-240-RWT release v1.1.18 with FAST 4.2 from 
+https://github.com/IEAWindSystems/IEA-15-240-RWT/releases/tag/v1.1.18

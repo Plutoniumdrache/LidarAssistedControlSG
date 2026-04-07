@@ -26,3 +26,19 @@ Moved to root simulation level:
 Changed naming of:
 	+ IEA-15-240-RWT-Monopile.fst -> IEA-15-240-RWT-Monopile_FB.fst
 
+2026/04/07:
+Setting up minimal test version for FAST 4.2 (without Lidar Simulator, FB only)
+Copied from Sprint folder (setup with old FAST 3.0):
+	+ ROSCO_FB.IN
+	+ ROSCO.dll
+	+ RunExample.m
+	+ FFP_v1_4BeamPulsed.IN
+	+ FFP_v1.dll
+	+ LDP_v1_4BeamPulsed.IN
+	+ LDP_v1.dll
+	+ WRAPPER_4BeamPulsed.IN
+	+ WRAPPER.dll
+Wind/
+	+ WriteBLgrid.m
+	+ WriteECD2BladedWind.m
+

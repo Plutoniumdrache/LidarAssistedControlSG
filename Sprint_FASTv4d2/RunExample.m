@@ -20,8 +20,8 @@ LidarType       = '4BeamPulsed'; % [4BeamPulsed/CircularCW]
 SimulationName  = 'IEA-15-240-RWT-Monopile';
 
 %% Run FB and FF simulation
-dos(['openfast_x64.exe ',SimulationName,'_FB.fst']); 
-dos(['openfast_x64.exe ',SimulationName,'_FBFF_',LidarType,'.fst']);
+dos(['openfast_x64_v4d2.exe ',SimulationName,'_FB.fst']); 
+dos(['openfast_x64_v4d2.exe ',SimulationName,'_FBFF_',LidarType,'.fst']);
 
 %% Comparison
 % read in data

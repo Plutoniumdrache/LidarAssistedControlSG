@@ -205,3 +205,13 @@ IEA-15-240-RWT-Monopile_ServoDyn.dat
 Renamning of: 
 	IEA-15-240-RWT-Monopile_ServoDyn.dat -> IEA-15-240-RWT-Monopile_ServoDyn_FB.dat
 
+2026/04/08:
+Switching to EOG wind.
+Added Files:
+From SummerGames 2024 Sprint:
+	+ SinglePoint_LidarFile.dat
+	+ FFP_v1.IN
+	+ LDP_v1.IN
+Wind/
+	+ WriteGust2BladedWindASCII.m
+	+ WriteGust2BladedWind.m

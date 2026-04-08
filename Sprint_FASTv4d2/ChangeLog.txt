@@ -206,7 +206,7 @@ Renamning of:
 	IEA-15-240-RWT-Monopile_ServoDyn.dat -> IEA-15-240-RWT-Monopile_ServoDyn_FB.dat
 
 2026/04/08:
-Switching to EOG wind.
+Switching inflow wind to 25 m/s EOG.
 Added Files:
 From SummerGames 2024 Sprint:
 	+ SinglePoint_LidarFile.dat
@@ -215,3 +215,34 @@ From SummerGames 2024 Sprint:
 Wind/
 	+ WriteGust2BladedWindASCII.m
 	+ WriteGust2BladedWind.m
+
+IEA-15-240-RWT_InflowFile.dat
+Line 24:
+	- "Wind/ECD_VrPlus2mps"  FilenameRoot - WindType=4: Rootname of the full-field wind file to use (.wnd, .sum); WindType=7: name of the intermediate file with wind scaling values
+	+ "Wind/EOG_URef_25"  FilenameRoot - WindType=4: Rootname of the full-field wind file to use (.wnd, .sum); WindType=7: name of the intermediate file with wind scaling values
+Line 14:
+	- 10.0                   HWindSpeed  - Horizontal windspeed                            (m/s)
+	+ 25.0                   HWindSpeed  - Horizontal windspeed                            (m/s)
+Line 16: //Adjusted to match EOG and steady states
+	- 0.12                    PLexp       - Power law exponent                              (-)
+	+ 0.00                    PLexp       - Power law exponent                              (-)
+Adjusted initial conditions, DOFs, simulation length:
+	IEA-15-240-RWT-Monopile_ElastoDyn.dat
+	Line 17:
+		- True                   TwSSDOF1    - First side-to-side tower bending-mode DOF (flag)
+		+ False                  TwSSDOF1    - First side-to-side tower bending-mode DOF (flag)
+	Initial Conditions:
+		- 7.3086                 BlPitch(1)  - Blade 1 initial pitch (degrees)
+		+ 22.7772                BlPitch(1)  - Blade 1 initial pitch (degrees)
+		- 7.55                   RotSpeed    - Initial or fixed rotor speed (rpm)
+		+ 7.56                   RotSpeed    - Initial or fixed rotor speed (rpm)
+		- 0.3190                 TTDspFA     - Initial fore-aft tower-top displacement (meters)
+		+ -0.0694                TTDspFA     - Initial fore-aft tower-top displacement (meters)
+		- -0.1277                TTDspSS     - Initial side-to-side tower-top displacement (meters)
+		+ 0.0                	 TTDspSS     - Initial side-to-side tower-top displacement (meters)
+	IEA-15-240-RWT-Monopile_FB.fst
+		+ Total simulation time to 40s
+
+
+
+

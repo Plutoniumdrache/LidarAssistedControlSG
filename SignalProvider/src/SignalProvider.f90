@@ -47,7 +47,10 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   ErrMsg  = ''
 
   inFileStr  = c_char_array_to_string(accINFILE)
-  
+  CALL log_line('Raw inFileStr=['//inFileStr//']')
+  CALL log_line('Length from avrSWAP(50)=['//trim(to_str_i4(NINT(avrSWAP(50))))//']')
+      CALL log_line('SIZE(accINFILE)=['//trim(to_str_i4(SIZE(accINFILE)))//']')
+    CALL log_line('avrSWAP(50)=['//trim(to_str_i4(NINT(avrSWAP(50))))//']')
   CALL log_line('DISCON entered') ! debug
   
   !---------------------------------------------
@@ -55,12 +58,12 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   !---------------------------------------------
   IF (.NOT. initialized) THEN
     CALL log_line('Starting initialization')
-    initialized = .TRUE.
+    
     param_path  = TRIM(inFileStr)
 
     CALL parse_SignalProviderCsv_infile(param_path, csv_path, swap_out_index, do_interp, preview_time, ierr, ErrMsg)
     IF (ierr /= 0) THEN
-        CALL log_line('parse_SignalProvidercsv_infile failed: '//TRIM(ErrMsg))
+        CALL log_line('parse_SignalProviderCsv_infile failed: '//TRIM(ErrMsg))
         aviFAIL = -1
         CALL set_discon_message(avcMSG, RoutineName//': '//TRIM(ErrMsg))
       RETURN
@@ -78,6 +81,7 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
       CALL set_discon_message(avcMSG, RoutineName//': SwapIndex must be >= 1.')
       RETURN
     ENDIF
+    initialized = .TRUE.
   ENDIF
 
   IF (npts < 2) THEN
@@ -667,7 +671,7 @@ SUBROUTINE log_line(txt)
     CHARACTER(*), INTENT(IN) :: txt
     INTEGER :: ios
     IF (.NOT. log_open) THEN
-      OPEN(NEWUNIT=ulog, FILE='TestBench_debug.log', STATUS='REPLACE', ACTION='WRITE', IOSTAT=ios)
+      OPEN(NEWUNIT=ulog, FILE='SignalProvider_debug.log', STATUS='REPLACE', ACTION='WRITE', IOSTAT=ios)
       IF (ios == 0) log_open = .TRUE.
     END IF
     IF (log_open) THEN

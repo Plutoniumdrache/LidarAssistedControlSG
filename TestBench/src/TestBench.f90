@@ -47,8 +47,10 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   ErrMsg  = ''
 
   inFileStr  = c_char_array_to_string(accINFILE)
-  
-  CALL log_line('DISCON entered') ! debug
+    CALL log_line('SIZE(accINFILE)=['//trim(to_str_i4(SIZE(accINFILE)))//']')
+    CALL log_line('avrSWAP(50)=['//trim(to_str_i4(NINT(avrSWAP(50))))//']')
+      
+    CALL log_line('DISCON entered') ! debug
   
   !---------------------------------------------
   ! One-time init: parse parameter file + load CSV

@@ -26,6 +26,8 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   REAL(8), SAVE :: preview_time = 0.0D0
 
   INTEGER, SAVE :: npts = 0
+  INTEGER, SAVE :: time_col = -1
+  INTEGER, SAVE :: value_col = -1
   REAL(8), ALLOCATABLE, SAVE :: t_csv(:), v_csv(:)
 
   CHARACTER(:), ALLOCATABLE, SAVE :: param_path
@@ -61,7 +63,8 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
     
     param_path  = TRIM(inFileStr)
 
-    CALL parse_SignalProviderCsv_infile(param_path, csv_path, swap_out_index, do_interp, preview_time, ierr, ErrMsg)
+    CALL parse_SignalProviderCsv_infile(param_path, csv_path, swap_out_index, do_interp, preview_time, &
+        time_col, value_col, ierr, ErrMsg)
     IF (ierr /= 0) THEN
         CALL log_line('parse_SignalProviderCsv_infile failed: '//TRIM(ErrMsg))
         aviFAIL = -1
@@ -69,7 +72,7 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
       RETURN
     ENDIF
 
-    CALL load_csv_two_columns(csv_path, t_csv, v_csv, npts, ierr, ErrMsg)
+    CALL load_delimited_columns(csv_path, time_col, value_col, t_csv, v_csv, npts, ierr, ErrMsg)
     IF (ierr /= 0) THEN
       aviFAIL = -1
       CALL set_discon_message(avcMSG, RoutineName//': '//TRIM(ErrMsg))
@@ -183,7 +186,7 @@ END FUNCTION c_char_array_to_string
   !========================
   ! Parse your Key: value .in file
   !========================
-SUBROUTINE parse_SignalProviderCsv_infile(pfile, csvOut, swapIdx, interp, preview, ierr, err)
+SUBROUTINE parse_SignalProviderCsv_infile(pfile, csvOut, swapIdx, interp, preview, timeCol, valueCol, ierr, err)
     CHARACTER(*), INTENT(IN)  :: pfile
     CHARACTER(:), ALLOCATABLE, INTENT(OUT) :: csvOut
     INTEGER,      INTENT(OUT) :: swapIdx
@@ -191,22 +194,28 @@ SUBROUTINE parse_SignalProviderCsv_infile(pfile, csvOut, swapIdx, interp, previe
     INTEGER,      INTENT(OUT) :: ierr
     CHARACTER(*), INTENT(OUT) :: err
     REAL(8),      INTENT(OUT) :: preview
+    INTEGER,      INTENT(OUT) :: timeCol
+    INTEGER,      INTENT(OUT) :: valueCol
 
     INTEGER :: u, ios
     CHARACTER(512) :: line
     CHARACTER(:), ALLOCATABLE :: key, val
-    LOGICAL :: haveCsv, haveSwap, haveInterp, havePreview
+    LOGICAL :: haveCsv, haveSwap, haveInterp, havePreview, haveTimeCol, haveValueCol
     CHARACTER(:), ALLOCATABLE :: baseDir, csvRaw
 
     ierr = 0
     err  = ''
     swapIdx = -1
     preview = 0.0D0
+    timeCol  = -1
+    valueCol = -1
     interp  = .TRUE.
     haveCsv = .FALSE.
     haveSwap = .FALSE.
     haveInterp = .FALSE.
     havePreview = .FALSE.
+    haveTimeCol  = .FALSE.
+    haveValueCol = .FALSE.
 
     baseDir = dirname_of_path(TRIM(pfile))
 
@@ -222,9 +231,7 @@ SUBROUTINE parse_SignalProviderCsv_infile(pfile, csvOut, swapIdx, interp, previe
       IF (ios /= 0) EXIT
 
       CALL strip_comment_and_trim(line)
-
       IF (LEN_TRIM(line) == 0) CYCLE
-
       IF (.NOT. split_key_value(line, key, val)) CYCLE
 
       CALL to_lower_inplace(key)
@@ -263,6 +270,26 @@ SUBROUTINE parse_SignalProviderCsv_infile(pfile, csvOut, swapIdx, interp, previe
           RETURN
         ENDIF
         havePreview = .TRUE.
+    
+    CASE ('timecolumnindex', 'timecol')
+        READ(val, *, IOSTAT=ios) timeCol
+        IF (ios /= 0 .OR. timeCol < 1) THEN
+          ierr = 7
+          err  = 'TimeColumn must be an integer >= 1.'
+          CLOSE(u)
+          RETURN
+        ENDIF
+        haveTimeCol = .TRUE.
+    
+   CASE ('valuecolumnindex', 'valuecol')
+        READ(val, *, IOSTAT=ios) valueCol
+        IF (ios /= 0 .OR. valueCol < 1) THEN
+          ierr = 8
+          err  = 'ValueColumn must be an integer >= 1.'
+          CLOSE(u)
+          RETURN
+        ENDIF
+        haveValueCol = .TRUE.
         
       CASE DEFAULT
         ! ignore unknown keys
@@ -283,9 +310,182 @@ SUBROUTINE parse_SignalProviderCsv_infile(pfile, csvOut, swapIdx, interp, previe
     IF (.NOT. haveInterp) THEN
       ! If omitted, default stays .TRUE. (fine)
     ENDIF
+    IF (.NOT. haveTimeCol) THEN
+      ierr = 9
+      err  = 'Missing required key: TimeColumnIndex'
+      RETURN
+    ENDIF
+    IF (.NOT. haveValueCol) THEN
+      ierr = 10
+      err  = 'Missing required key: ValueColumnIndex'
+      RETURN
+    ENDIF
 
     csvOut = resolve_relative_path(baseDir, csvRaw)
-  END SUBROUTINE parse_SignalProviderCsv_infile
+END SUBROUTINE parse_SignalProviderCsv_infile
+
+  !========================
+  ! Generic comma-separated loader:
+  ! reads selected time/value columns from any comma-separated file
+  !========================
+  SUBROUTINE load_delimited_columns(path, timeCol, valueCol, t, v, n, ierr, err)
+    CHARACTER(*), INTENT(IN) :: path
+    INTEGER,      INTENT(IN) :: timeCol, valueCol
+    REAL(8), ALLOCATABLE, INTENT(OUT) :: t(:), v(:)
+    INTEGER, INTENT(OUT) :: n, ierr
+    CHARACTER(*), INTENT(OUT) :: err
+
+    INTEGER :: u, ios, count, i
+    CHARACTER(2048) :: line
+    REAL(8) :: tt, vv
+
+    ierr = 0
+    err  = ''
+    n    = 0
+
+    IF (timeCol < 1 .OR. valueCol < 1) THEN
+      ierr = 1
+      err  = 'TimeColumn and ValueColumn must be >= 1.'
+      RETURN
+    ENDIF
+
+    OPEN(NEWUNIT=u, FILE=TRIM(path), STATUS='OLD', ACTION='READ', IOSTAT=ios)
+    IF (ios /= 0) THEN
+      ierr = 2
+      err  = 'Could not open comma-separated file: '//TRIM(path)
+      RETURN
+    ENDIF
+
+    count = 0
+    DO
+      READ(u,'(A)',IOSTAT=ios) line
+      IF (ios /= 0) EXIT
+      IF (is_blank_or_comment(line)) CYCLE
+      IF (try_parse_selected_columns(line, timeCol, valueCol, tt, vv)) count = count + 1
+    END DO
+    CLOSE(u)
+
+    IF (count < 2) THEN
+      ierr = 3
+      err  = 'File has fewer than 2 valid numeric rows for the selected TimeColumn and ValueColumn.'
+      RETURN
+    ENDIF
+
+    ALLOCATE(t(count), v(count))
+    n = count
+
+    OPEN(NEWUNIT=u, FILE=TRIM(path), STATUS='OLD', ACTION='READ', IOSTAT=ios)
+    IF (ios /= 0) THEN
+      ierr = 4
+      err  = 'Could not re-open comma-separated file: '//TRIM(path)
+      RETURN
+    ENDIF
+
+    i = 0
+    DO
+      READ(u,'(A)',IOSTAT=ios) line
+      IF (ios /= 0) EXIT
+      IF (is_blank_or_comment(line)) CYCLE
+      IF (try_parse_selected_columns(line, timeCol, valueCol, tt, vv)) THEN
+        i = i + 1
+        t(i) = tt
+        v(i) = vv
+      ENDIF
+    END DO
+    CLOSE(u)
+
+    CALL ensure_sorted_by_time(t, v, n, ierr, err)
+  END SUBROUTINE load_delimited_columns
+
+
+  LOGICAL FUNCTION try_parse_selected_columns(line, timeCol, valueCol, tval, vval)
+    CHARACTER(*), INTENT(IN) :: line
+    INTEGER,      INTENT(IN) :: timeCol, valueCol
+    REAL(8),      INTENT(OUT) :: tval, vval
+
+    CHARACTER(:), ALLOCATABLE :: f1, f2
+    INTEGER :: ios1, ios2
+
+    try_parse_selected_columns = .FALSE.
+
+    f1 = get_csv_field(line, timeCol)
+    f2 = get_csv_field(line, valueCol)
+
+    IF (.NOT. ALLOCATED(f1)) RETURN
+    IF (.NOT. ALLOCATED(f2)) RETURN
+    IF (LEN_TRIM(f1) == 0 .OR. LEN_TRIM(f2) == 0) RETURN
+
+    READ(f1, *, IOSTAT=ios1) tval
+    READ(f2, *, IOSTAT=ios2) vval
+
+    IF (ios1 == 0 .AND. ios2 == 0) THEN
+      try_parse_selected_columns = .TRUE.
+    ENDIF
+  END FUNCTION try_parse_selected_columns
+
+
+  FUNCTION get_csv_field(line, fieldIndex) RESULT(field)
+    CHARACTER(*), INTENT(IN) :: line
+    INTEGER,      INTENT(IN) :: fieldIndex
+    CHARACTER(:), ALLOCATABLE :: field
+
+    INTEGER :: i, n, startPos, endPos, currentField
+    LOGICAL :: inQuotes
+    CHARACTER(1) :: ch
+
+    field = ''
+
+    IF (fieldIndex < 1) RETURN
+
+    n = LEN_TRIM(line)
+    IF (n <= 0) RETURN
+
+    currentField = 1
+    startPos = 1
+    inQuotes = .FALSE.
+
+    DO i = 1, n
+      ch = line(i:i)
+
+      IF (ch == '"') THEN
+        inQuotes = .NOT. inQuotes
+      ELSEIF (ch == ',' .AND. .NOT. inQuotes) THEN
+        IF (currentField == fieldIndex) THEN
+          endPos = i - 1
+          field = trim_whitespace(strip_optional_quotes(line(startPos:endPos)))
+          RETURN
+        ENDIF
+        currentField = currentField + 1
+        startPos = i + 1
+      ENDIF
+    END DO
+
+    ! last field
+    IF (currentField == fieldIndex) THEN
+      field = trim_whitespace(strip_optional_quotes(line(startPos:n)))
+    ENDIF
+  END FUNCTION get_csv_field
+
+
+  FUNCTION strip_optional_quotes(s) RESULT(out)
+    CHARACTER(*), INTENT(IN) :: s
+    CHARACTER(:), ALLOCATABLE :: out
+    CHARACTER(:), ALLOCATABLE :: tmp
+    INTEGER :: n
+
+    tmp = trim_whitespace(s)
+    n = LEN(tmp)
+
+    IF (n >= 2) THEN
+      IF ((tmp(1:1) == '"' .AND. tmp(n:n) == '"') .OR. &
+          (tmp(1:1) == "'" .AND. tmp(n:n) == "'")) THEN
+        out = tmp(2:n-1)
+        RETURN
+      ENDIF
+    ENDIF
+
+    out = tmp
+  END FUNCTION strip_optional_quotes
 
 SUBROUTINE strip_comment_and_trim(s)
   CHARACTER(*), INTENT(INOUT) :: s
@@ -393,68 +593,7 @@ END SUBROUTINE strip_comment_and_trim
     full = TRIM(baseDir)//'/'//TRIM(rel)
   END FUNCTION resolve_relative_path
 
-  !========================
-  ! CSV loader: 2 numeric columns (time,value)
-  !========================
-  SUBROUTINE load_csv_two_columns(path, t, v, n, ierr, err)
-    CHARACTER(*), INTENT(IN) :: path
-    REAL(8), ALLOCATABLE, INTENT(OUT) :: t(:), v(:)
-    INTEGER, INTENT(OUT) :: n, ierr
-    CHARACTER(*), INTENT(OUT) :: err
-
-    INTEGER :: u, ios, count, i
-    CHARACTER(512) :: line
-    REAL(8) :: tt, vv
-
-    ierr = 0; err = ''; n = 0
-
-    OPEN(NEWUNIT=u, FILE=TRIM(path), STATUS='OLD', ACTION='READ', IOSTAT=ios)
-    IF (ios /= 0) THEN
-      ierr = 1
-      err  = 'Could not open CSV: '//TRIM(path)
-      RETURN
-    ENDIF
-
-    count = 0
-    DO
-      READ(u,'(A)',IOSTAT=ios) line
-      IF (ios /= 0) EXIT
-      IF (is_blank_or_comment(line)) CYCLE
-      IF (try_parse_two_reals(line, tt, vv)) count = count + 1
-    END DO
-    CLOSE(u)
-
-    IF (count < 2) THEN
-      ierr = 2
-      err  = 'CSV has fewer than 2 numeric rows (need time,value).'
-      RETURN
-    ENDIF
-
-    ALLOCATE(t(count), v(count))
-    n = count
-
-    OPEN(NEWUNIT=u, FILE=TRIM(path), STATUS='OLD', ACTION='READ', IOSTAT=ios)
-    IF (ios /= 0) THEN
-      ierr = 3
-      err  = 'Could not re-open CSV: '//TRIM(path)
-      RETURN
-    ENDIF
-
-    i = 0
-    DO
-      READ(u,'(A)',IOSTAT=ios) line
-      IF (ios /= 0) EXIT
-      IF (is_blank_or_comment(line)) CYCLE
-      IF (try_parse_two_reals(line, tt, vv)) THEN
-        i = i + 1
-        t(i) = tt
-        v(i) = vv
-      ENDIF
-    END DO
-    CLOSE(u)
-
-    CALL ensure_sorted_by_time(t, v, n, ierr, err)
-  END SUBROUTINE load_csv_two_columns
+  
 
   LOGICAL FUNCTION is_blank_or_comment(line)
     CHARACTER(*), INTENT(IN) :: line
@@ -462,19 +601,6 @@ END SUBROUTINE strip_comment_and_trim
     s = ADJUSTL(line)
     is_blank_or_comment = (LEN_TRIM(s) == 0) .OR. (s(1:1) == '#') .OR. (s(1:1) == '!')
   END FUNCTION is_blank_or_comment
-
-  LOGICAL FUNCTION try_parse_two_reals(line, a, b)
-    CHARACTER(*), INTENT(IN) :: line
-    REAL(8), INTENT(OUT) :: a, b
-    CHARACTER(512) :: tmp
-    INTEGER :: ios, p
-    tmp = line
-    DO p = 1, LEN(tmp)
-      IF (tmp(p:p) == ',') tmp(p:p) = ' '
-    END DO
-    READ(tmp, *, IOSTAT=ios) a, b
-    try_parse_two_reals = (ios == 0)
-  END FUNCTION try_parse_two_reals
 
   SUBROUTINE ensure_sorted_by_time(t, v, n, ierr, err)
     REAL(8), INTENT(IN) :: t(:), v(:)

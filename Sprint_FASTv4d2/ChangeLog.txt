@@ -243,6 +243,24 @@ Adjusted initial conditions, DOFs, simulation length:
 	IEA-15-240-RWT-Monopile_FB.fst
 		+ Total simulation time to 40s
 
+2026/04/10:
+Added files for SinglePoint FBFF example:
++ IEA-15-240-RWT-Monopile_FBFF_SinglePoint.fst
++ IEA-15-240-RWT-Monopile_ServoDyn_FBFF_SinglePoint.dat
++ ROSCO_FBFF.IN
++ SignalProvider.dll
++ SignalProvider_SinglePoint.IN
++ WRAPPER_SinglePoint.IN
+
+Updated WRAPPER.dll due to a bug related to the length of the .IN file names.
+
+FFP_v1.IN
+- 3.0   	! T_buffer        		- Buffer time for filtered REWS signal [s]
++ 0.0   	! T_buffer        		- Buffer time for filtered REWS signal [s]
+
+
+
+
 
 
 

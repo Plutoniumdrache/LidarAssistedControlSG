@@ -3,15 +3,15 @@ close all;
 clc;
 
 %%
-FileName = 'EOG_URef_25';
+% FileName = 'EOG_URef_25';
 
 %% Preprocessing
 % time
-T           = 50;                   % [s]   simulation length
+T           = 40;                   % [s]   simulation length
 dt          = 1/100;               	% [s]   simulation time step
 
 % wind
-V_hub       = 25;                   % [m/s] mean wind speed at hub height 
+V_hub       = 12;                   % [m/s] mean wind speed at hub height 
 T_gust      = 10.5;                 % [s]   length of EOG
 t_start     = 10;                   % [s]   time when EOG should start
 V_ref       = 50;                   % [m/s] reference wind speed average over 10 min
@@ -75,10 +75,10 @@ SummVars(6) = std(squeeze(velocity(:,1,1,1)))/URef*100;
 
 disp('Exporting rotor plane wind field as ".wnd" binary files...')
 % write the .wnd
-WriteBLgrid([FileName '.wnd'], velocity, dy, dz, dt, zOffset, z0, SummVars)
+WriteBLgrid(['EOG_URef_',num2str(V_hub,'%02d'),'.wnd'], velocity, dy, dz, dt, zOffset, z0, SummVars)
 
 % Now write a sum file
-fileID    = fopen([FileName '.sum'],'w');
+fileID    = fopen(['EOG_URef_',num2str(V_hub,'%02d'),'.sum'],'w');
 fprintf(fileID,'This summary file is not complete it only contains required information for the OpenFAST');
 fprintf(fileID,'\n');
 fprintf(fileID,'F        Clockwise rotation when looking downwind?\n');

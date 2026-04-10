@@ -7,11 +7,11 @@ clc;
 
 %% Preprocessing
 % time
-T           = 50;                   % [s]   simulation length
+T           = 40;                   % [s]   simulation length
 dt          = 1/100;               	% [s]   simulation time step
 
 % wind
-V_hub       = 25;                   % [m/s] mean wind speed at hub height 
+V_hub       = 12;                   % [m/s] mean wind speed at hub height 
 T_gust      = 10.5;                 % [s]   length of EOG
 t_start     = 10;                   % [s]   time when EOG should start
 V_ref       = 50;                   % [m/s] reference wind speed average over 10 min
@@ -47,21 +47,18 @@ plot(t,u)
 
 %% Preprocessing: generate uniform wind field
 fid = fopen(['EOG_ASCII_',num2str(V_hub,'%02d'),'.wnd'],'w+');
-
 n_data = length(u);
 fprintf(fid,['%f,%f,%f,%f,%f,%f,%f,%f\r\n'],[t' u' zeros(n_data,3)  ones(n_data,1)*alpha zeros(n_data,2)]');
 fclose(fid);
 
 % csv version
 fid = fopen(['EOG_ASCII_',num2str(V_hub,'%02d'),'.csv'],'w+');
-
 n_data = length(u);
 fprintf(fid,['%f,%f,%f,%f,%f,%f,%f,%f\r\n'],[t' u' zeros(n_data,3)  ones(n_data,1)*alpha zeros(n_data,2)]');
 fclose(fid);
 
 % csv 2 column version
-fid = fopen(['EOG_ASCII_',num2str(V_hub,'%02d'),'_2c.csv'],'w+');
-
-n_data = length(u);
-fprintf(fid,['%f,%f\r\n'],[t' u']');
-fclose(fid);
+% fid = fopen(['EOG_ASCII_',num2str(V_hub,'%02d'),'_2c.csv'],'w+');
+% n_data = length(u);
+% fprintf(fid,['%f,%f\r\n'],[t' u']');
+% fclose(fid);

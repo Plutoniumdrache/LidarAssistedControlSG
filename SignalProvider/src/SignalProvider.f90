@@ -49,24 +49,16 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   ErrMsg  = ''
 
   inFileStr  = c_char_array_to_string(accINFILE)
-  CALL log_line('Raw inFileStr=['//inFileStr//']')
-  CALL log_line('Length from avrSWAP(50)=['//trim(to_str_i4(NINT(avrSWAP(50))))//']')
-      CALL log_line('SIZE(accINFILE)=['//trim(to_str_i4(SIZE(accINFILE)))//']')
-    CALL log_line('avrSWAP(50)=['//trim(to_str_i4(NINT(avrSWAP(50))))//']')
-  CALL log_line('DISCON entered') ! debug
   
   !---------------------------------------------
   ! One-time init: parse parameter file + load CSV
   !---------------------------------------------
   IF (.NOT. initialized) THEN
-    CALL log_line('Starting initialization')
-    
     param_path  = TRIM(inFileStr)
-
+    
     CALL parse_SignalProviderCsv_infile(param_path, csv_path, swap_out_index, do_interp, preview_time, &
         time_col, value_col, ierr, ErrMsg)
     IF (ierr /= 0) THEN
-        CALL log_line('parse_SignalProviderCsv_infile failed: '//TRIM(ErrMsg))
         aviFAIL = -1
         CALL set_discon_message(avcMSG, RoutineName//': '//TRIM(ErrMsg))
       RETURN
@@ -123,12 +115,7 @@ SUBROUTINE DISCON(avrSWAP, aviFAIL, accINFILE, avcOUTNAME, avcMSG) BIND (C, NAME
   avrSWAP_Status = NINT(avrSWAP(1))
   
 IF (avrSWAP_Status >= 0) THEN
-      CALL log_line(': before write to swap')
-      CALL log_line('TB: swp idx='//trim(adjustl(to_str_i4(swap_out_index))))
-      CALL log_line('TB: swp entry idx 1='//trim(adjustl(to_str_i4(avrSWAP_Status))) )
       avrSWAP(swap_out_index) = REAL(y_now, KIND=C_FLOAT)
-        CALL log_line('TB: t='//trim(adjustl(to_str(t_now))) )
-      CALL log_line(': after write to swap')
     END IF
 
   CALL set_discon_message(avcMSG, '')
@@ -773,36 +760,4 @@ END SUBROUTINE strip_comment_and_trim
 
     sample_hold_previous_periodic = v(1)
   END FUNCTION sample_hold_previous_periodic
-  
-  FUNCTION to_str(x) RESULT(s)
-  REAL(8), INTENT(IN) :: x
-  CHARACTER(64) :: s
-  WRITE(s,'(G0.16)') x
-END FUNCTION
-
-FUNCTION to_str_i4(i) RESULT(s)
-  INTEGER, INTENT(IN) :: i
-  CHARACTER(32) :: s
-  WRITE(s,'(I0)') i
-END FUNCTION
-  
-    END SUBROUTINE DISCON
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
-SUBROUTINE log_line(txt)
-
-  ! for logging
-    INTEGER, SAVE :: ulog = -1
-    LOGICAL, SAVE :: log_open = .FALSE.
-
-    CHARACTER(*), INTENT(IN) :: txt
-    INTEGER :: ios
-    IF (.NOT. log_open) THEN
-      OPEN(NEWUNIT=ulog, FILE='SignalProvider_debug.log', STATUS='REPLACE', ACTION='WRITE', IOSTAT=ios)
-      IF (ios == 0) log_open = .TRUE.
-    END IF
-    IF (log_open) THEN
-      WRITE(ulog,'(A)') TRIM(txt)
-      CALL FLUSH(ulog)
-    END IF
-    
-END SUBROUTINE log_line
+END SUBROUTINE DISCON

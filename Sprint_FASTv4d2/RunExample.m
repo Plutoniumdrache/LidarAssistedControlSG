@@ -14,7 +14,7 @@ clearvars;close all;clc;
 addpath(genpath('..\WetiMatlabFunctions'))
 
 % select simulated lidar
-LidarType       = '4BeamPulsed'; % [4BeamPulsed/CircularCW]
+LidarType       = 'SinglePoint'; % [SinglePoint]
 
 % define FAST input file
 SimulationName  = 'IEA-15-240-RWT-Monopile';

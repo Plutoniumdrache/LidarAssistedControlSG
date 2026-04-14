@@ -19,6 +19,9 @@ if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(SOURCES
+    src/SignalProvider_Types.f90
+    src/SignalProvider_Helpers.f90
+    src/SignalProvider_Subs.f90
     src/SignalProvider.f90
 )
 
